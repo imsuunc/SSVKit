@@ -7,13 +7,14 @@ open class STabBarController: SViewController {
     
     private var currentViewController: SViewController?
     private var currentNavigationController: UINavigationController?
-    private var viewContainerCustomHeight: NSLayoutConstraint?
-    private var viewContainerTabBarHeight: NSLayoutConstraint?
-    private var viewContainerControllerPosition: NSLayoutConstraint?
-    private var viewContainerControllerBottom: NSLayoutConstraint?
-    
+    private var constraintViewCustomHeight: NSLayoutConstraint?
+    private var constraintViewTabBarHeight: NSLayoutConstraint?
+    private var constraintViewShadowHeight: NSLayoutConstraint?
+    private var constraintViewControllerBottom: NSLayoutConstraint?
+    private var constraintViewControllerPosition: NSLayoutConstraint?
+    // MARK: NAVIGATIONS
     private var navigationControllers = [UINavigationController]()
-    
+    // MARK: Container
     private var viewContainerController: UIView = {
         let view = UIView()
         view.backgroundColor = .clear
@@ -21,41 +22,125 @@ open class STabBarController: SViewController {
         return view
     }()
     
-    private var viewContainerTabBar: UIStackView = {
-        let view = UIStackView()
-        view.backgroundColor = .clear
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.axis = .horizontal
-        view.distribution = .fillEqually
-        view.alignment = .fill
-        view.spacing = 0
-        return view
-    }()
-    
-    private var viewContainerCustom: UIView = {
+    private var viewShadow: UIView = {
         let view = UIView()
         view.backgroundColor = .clear
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.clipsToBounds = false
         return view
     }()
     
-    open var isUsingSafeArea: Bool = true
+    private var viewTabBar: UIView = {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.clipsToBounds = false
+        return view
+    }()
     
-    open var isShowViewCustom: Bool = false {
+    private var viewCustom: UIView = {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.clipsToBounds = false
+        return view
+    }()
+    
+    // MARK: MUST SET BEFORE SETUP
+    open var isUsingSafeArea: Bool = false
+    
+    open var viewShadowOpacity: Float = 0.15 {
+        didSet {
+            if viewShadowOpacity != oldValue {
+                viewShadow.layer.shadowOpacity = viewShadowOpacity
+            }
+        }
+    }
+    
+    open var viewShadowRadius: CGFloat = 1 {
+        didSet {
+            if viewShadowRadius != oldValue {
+                viewShadow.layer.shadowRadius = viewShadowRadius
+            }
+        }
+    }
+    
+    open var viewShadowOffset: CGSize = CGSize(width: 0, height: -1) {
+        didSet {
+            if viewShadowOffset != oldValue {
+                viewShadow.layer.shadowOffset = viewShadowOffset
+            }
+        }
+    }
+    
+    open var viewShadowColor: UIColor = .clear {
+        didSet {
+            if viewShadowColor != oldValue {
+                viewShadow.backgroundColor = viewShadowColor.withAlphaComponent(0.15)
+                viewShadow.layer.shadowColor = viewShadowColor.cgColor
+                viewShadow.layer.masksToBounds = false
+            }
+            if viewShadowColor == .clear {
+                constraintViewShadowHeight?.constant = 0
+            }
+        }
+    }
+    
+    open var viewShadowHeight: CGFloat = 1 {
+        didSet {
+            if let constraintViewShadowHeight = constraintViewShadowHeight, viewShadowHeight != oldValue {
+                constraintViewShadowHeight.constant = viewShadowHeight
+            }
+        }
+    }
+    
+    open var isShowViewShadow: Bool = true {
         didSet {
             UIView.animate(withDuration: 0.15) {
-                self.viewContainerCustomHeight?.constant = self.isShowViewCustom ? self.viewCustomHeight : 0
-                self.viewContainerCustom.isHidden = !self.isShowViewCustom
+                self.constraintViewShadowHeight?.constant = self.isShowViewShadow ? self.viewShadowHeight : 0
+                self.viewShadow.isHidden = !self.isShowViewShadow
                 self.setNeedsFocusUpdate()
             }
         }
     }
     
-    open var viewCustomColor: UIColor = .clear
+    open var viewTabBarColor: UIColor = .clear {
+        didSet {
+            viewTabBar.backgroundColor = viewTabBarColor
+        }
+    }
     
-    open var viewCustomHeight: CGFloat = 50
+    open var viewTabBarHeight: CGFloat = 56 {
+        didSet {
+            if let constraintViewTabBarHeight = constraintViewTabBarHeight, viewTabBarHeight != oldValue {
+                constraintViewTabBarHeight.constant = viewTabBarHeight
+            }
+        }
+    }
     
-    open var viewTabBarHeight: CGFloat = 56
+    open var viewCustomColor: UIColor = .clear {
+        didSet {
+            viewCustom.backgroundColor = viewCustomColor
+        }
+    }
+    
+    open var viewCustomHeight: CGFloat = 50 {
+        didSet {
+            if let constraintViewCustomHeight = constraintViewCustomHeight, viewCustomHeight != oldValue {
+                constraintViewCustomHeight.constant = viewCustomHeight
+            }
+        }
+    }
+    
+    open var isShowViewCustom: Bool = false {
+        didSet {
+            UIView.animate(withDuration: 0.15) {
+                self.constraintViewCustomHeight?.constant = self.isShowViewCustom ? self.viewCustomHeight : 0
+                self.viewCustom.isHidden = !self.isShowViewCustom
+                self.setNeedsFocusUpdate()
+            }
+        }
+    }
     
     open var viewContollers = [SViewController]() {
         didSet {
@@ -104,37 +189,46 @@ open class STabBarController: SViewController {
 extension STabBarController {
     
     private func initializeTabBarItems() {
-        viewContainerCustom.backgroundColor = viewCustomColor
-        view.addSubview(viewContainerCustom)
-        viewContainerCustom.leadingToSuperview(usingSafeArea: isUsingSafeArea)
-        viewContainerCustom.trailingToSuperview(usingSafeArea: isUsingSafeArea)
-        viewContainerCustom.bottomToSuperview(usingSafeArea: true)
-        viewContainerCustom.isHidden = !isShowViewCustom
-        viewContainerCustomHeight = viewContainerCustom.height(isShowViewCustom ? viewCustomHeight : 0)
-        view.addSubview(viewContainerTabBar)
-        viewContainerTabBar.leadingToSuperview(usingSafeArea: isUsingSafeArea)
-        viewContainerTabBar.trailingToSuperview(usingSafeArea: isUsingSafeArea)
-        viewContainerTabBar.bottomToTop(of: viewContainerCustom)
-        viewContainerTabBarHeight = viewContainerTabBar.height(viewTabBarHeight)
         view.addSubview(viewContainerController)
+        view.addSubview(viewCustom)
+        view.addSubview(viewTabBar)
+        view.addSubview(viewShadow)
+        viewCustom.backgroundColor = viewCustomColor
+        viewCustom.leadingToSuperview(usingSafeArea: isUsingSafeArea)
+        viewCustom.trailingToSuperview(usingSafeArea: isUsingSafeArea)
+        viewCustom.bottomToSuperview(usingSafeArea: true)
+        viewCustom.isHidden = !isShowViewCustom
+        constraintViewCustomHeight = viewCustom.height(isShowViewCustom ? viewCustomHeight : 0)
+        
+        viewTabBar.leadingToSuperview(usingSafeArea: isUsingSafeArea)
+        viewTabBar.trailingToSuperview(usingSafeArea: isUsingSafeArea)
+        viewTabBar.bottomToTop(of: viewCustom)
+        constraintViewTabBarHeight = viewTabBar.height(viewTabBarHeight)
+        
+        viewShadow.leadingToSuperview(usingSafeArea: isUsingSafeArea)
+        viewShadow.trailingToSuperview(usingSafeArea: isUsingSafeArea)
+        viewShadow.bottomToTop(of: viewTabBar)
+        constraintViewShadowHeight = viewShadow.height(isShowViewShadow ? viewShadowHeight : 0)
+        
         viewContainerController.leadingToSuperview(usingSafeArea: isUsingSafeArea)
         viewContainerController.trailingToSuperview(usingSafeArea: isUsingSafeArea)
         viewContainerController.topToSuperview(usingSafeArea: isUsingSafeArea)
-        viewContainerControllerPosition = viewContainerController.bottomToSuperview(priority: .defaultLow, usingSafeArea: isUsingSafeArea)
-        viewContainerControllerPosition?.isActive = false
-        viewContainerControllerBottom = viewContainerController.bottomToTop(of: viewContainerTabBar)
-        viewContainerControllerBottom?.isActive = true
+        constraintViewControllerPosition = viewContainerController.bottomToSuperview(priority: .defaultLow, usingSafeArea: isUsingSafeArea)
+        constraintViewControllerPosition?.isActive = false
+        constraintViewControllerBottom = viewContainerController.bottomToTop(of: viewShadow)
+        constraintViewControllerBottom?.isActive = true
         
     }
     
     private func initializeViewControllers() {
+        var tabBarItems: [STabBarItemView] = []
         for (index, controller) in viewContollers.enumerated() {
             let navigationController = UINavigationController(rootViewController: controller)
             navigationController.delegate = self
             navigationController.isNavigationBarHidden = controller.isNavigationBarHiden
             navigationControllers.append(navigationController)
             if let barItem = controller.tabBarItemView {
-                viewContainerTabBar.addArrangedSubview(barItem)
+                tabBarItems.append(barItem)
                 barItem.isSelected = false
                 barItem.onTouch = {
                     Task { @MainActor [weak self] in
@@ -150,7 +244,7 @@ extension STabBarController {
                 }
                 let barItem = STabBarItemView(title: "Item \(index + 1)", icon: image)
                 controller.tabBarItemView = barItem
-                viewContainerTabBar.addArrangedSubview(barItem)
+                tabBarItems.append(barItem)
                 barItem.isSelected = false
                 barItem.onTouch = {
                     Task { @MainActor [weak self] in
@@ -161,6 +255,7 @@ extension STabBarController {
                 }
             }
         }
+        viewTabBar.stack(tabBarItems, axis: .horizontal, spacing: 0)
         selectedIndex = 0
         didSelected(index: selectedIndex, viewController: viewContollers[0])
     }
@@ -182,32 +277,32 @@ extension STabBarController: UINavigationControllerDelegate {
     public func navigationController(_ navigationController: UINavigationController, willShow viewController: UIViewController, animated: Bool) {
         if viewController != navigationController.viewControllers.first {
             UIView.animate(withDuration: 0.15) {
-                self.viewContainerTabBar.isHidden = true
-                self.viewContainerTabBarHeight?.constant = 0
+                self.viewTabBar.isHidden = true
+                self.constraintViewTabBarHeight?.constant = 0
                 if self.isUsingSafeArea {
-                    self.viewContainerControllerPosition?.isActive = false
-                    self.viewContainerControllerBottom?.isActive = true
+                    self.constraintViewControllerPosition?.isActive = false
+                    self.constraintViewControllerBottom?.isActive = true
                 } else {
-                    self.viewContainerControllerPosition?.isActive = true
-                    self.viewContainerControllerBottom?.isActive = false
+                    self.constraintViewControllerPosition?.isActive = true
+                    self.constraintViewControllerBottom?.isActive = false
                 }
                 self.view.layoutIfNeeded()
             }
         } else {
-            viewContainerControllerPosition?.isActive = false
-            viewContainerControllerBottom?.isActive = true
-            viewContainerTabBarHeight?.constant = 56
-            viewContainerTabBar.isHidden = false
+            constraintViewControllerPosition?.isActive = false
+            constraintViewControllerBottom?.isActive = true
+            constraintViewTabBarHeight?.constant = viewTabBarHeight
+            viewTabBar.isHidden = false
             view.layoutIfNeeded()
         }
     }
     
     public func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
         if viewController == navigationController.viewControllers.first {
-            viewContainerControllerPosition?.isActive = false
-            viewContainerControllerBottom?.isActive = true
-            viewContainerTabBar.isHidden = false
-            viewContainerTabBarHeight?.constant = 56
+            constraintViewControllerPosition?.isActive = false
+            constraintViewControllerBottom?.isActive = true
+            viewTabBar.isHidden = false
+            constraintViewTabBarHeight?.constant = viewTabBarHeight
             view.layoutIfNeeded()
         }
     }
@@ -221,7 +316,7 @@ extension STabBarController {
     }
     
     @objc open func addViewCustom(_ view: UIView) {
-        self.viewContainerCustom.addSubview(view)
+        self.viewCustom.addSubview(view)
         view.translatesAutoresizingMaskIntoConstraints = false
         view.leadingToSuperview()
         view.topToSuperview()

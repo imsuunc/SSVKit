@@ -3,7 +3,7 @@ import UIKit
 public extension SView {
     
     @discardableResult
-    func stack(_ views: [SView], axis: SConstraintAxis = .vertical, width: CGFloat? = nil, height: CGFloat? = nil, spacing: CGFloat = 0) -> SConstraints {
+    func stack(_ views: [SView], axis: SConstraintAxis = .vertical, equalSize: Bool = true, width: CGFloat? = nil, height: CGFloat? = nil, spacing: CGFloat = 0) -> SConstraints {
         
         translatesAutoresizingMaskIntoConstraints = false
         
@@ -17,6 +17,10 @@ public extension SView {
             
             switch axis {
             case .vertical:
+                if let previous = previous, equalSize {
+                    constraints.append(view.height(to: previous))
+                }
+                
                 constraints.append(view.top(to: previous ?? self, previous?.bottomAnchor ?? topAnchor, offset: offset))
                 constraints.append(view.leftToSuperview())
                 constraints.append(view.rightToSuperview())
@@ -25,6 +29,9 @@ public extension SView {
                     constraints.append(view.bottomToSuperview())
                 }
             case .horizontal:
+                if let previous = previous, equalSize {
+                    constraints.append(view.width(to: previous))
+                }
                 constraints.append(view.topToSuperview())
                 constraints.append(view.bottomToSuperview())
                 constraints.append(view.left(to: previous ?? self, previous?.rightAnchor ?? leftAnchor, offset: offset))
